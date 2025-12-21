@@ -23,14 +23,31 @@ def detect_language(text):
         return False
     
     english_words = {
+        # --- Common Stop Words ---
         'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
         'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
         'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
         'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
         'is', 'are', 'was', 'were', 'been', 'has', 'had', 'does', 'did', 'can',
-        'could', 'should', 'stock', 'market', 'price', 'buy', 'sell', 'trading',
+        'could', 'should', 'about', 'after', 'over', 'under', 'up', 'down',
+        
+        # --- Core Market Terms ---
+        'stock', 'market', 'price', 'buy', 'sell', 'trading', 'trade',
+        'shares', 'earnings', 'revenue', 'profit', 'loss', 'quarter', 'reports',
         'hold', 'long', 'short', 'call', 'put', 'bull', 'bear', 'rally', 
-        'surge', 'plunge', 'dip', 'gap', 'eps', 'guidance', 'forecast'
+        'surge', 'plunge', 'dip', 'gap', 'eps', 'guidance', 'forecast',
+        
+        # --- Macro Economics ---
+        'inflation', 'rate', 'rates', 'fed', 'federal', 'bank', 'economy', 
+        'recession', 'gdp', 'cpi', 'debt', 'bond', 'yield', 'crypto', 'bitcoin',
+        
+        # --- Corporate Actions ---
+        'dividend', 'split', 'merger', 'acquisition', 'deal', 'ipo', 'ceo', 'cfo',
+        'board', 'investor', 'shareholder', 'analyst', 'target', 'rating', 'upgrade', 'downgrade',
+        
+        # --- Movement Verbs/Adjectives ---
+        'record', 'high', 'low', 'gain', 'drop', 'crash', 'boom', 'correction',
+        'volatility', 'volume', 'green', 'red', 'support', 'resistance', 'breakout'
     }
     
     words = re.findall(r'\b[a-z]+\b', text.lower())
@@ -80,34 +97,26 @@ def clean_whitespace(text):
 
 def preprocess_text(text):
     """Apply text cleaning pipeline to financial tweets."""
+
+    # Ensure text is not empty and is a string
     if not text or not isinstance(text, str):
         return None
     
-    text = html.unescape(text)
-    text = re.sub(r'^RT[\s]+', '', text)
-    text = re.sub(r'http\S+|www\.\S+', '', text)
-    text = re.sub(r'\b0x[a-fA-F0-9]{40}\b', '', text)
-    text = re.sub(r'\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b', '', text)
-    text = re.sub(r'@\w+', '', text)
-    text = re.sub(r'#\w+', '', text)
-    emoji_pattern = re.compile(
-        "["
-        u"\U0001F600-\U0001F64F"  # emoticons
-        u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-        u"\U0001F680-\U0001F6FF"  # transport & map symbols
-        u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-        u"\U00002702-\U000027B0"
-        u"\U000024C2-\U0001F251"
-        "]+",
-        flags=re.UNICODE
-    )
-    text = emoji_pattern.sub(r'', text)
-    text = re.sub(r'([!?.,()])', r' \1 ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = html.unescape(text) # Decode HTML entities
+    text = re.sub(r'^RT[\s]+', '', text) # Remove 'RT' (Retweet) marker from start of text
+    text = remove_urls(text) # Remove URLs
+    text = re.sub(r'\b0x[a-fA-F0-9]{40}\b', '', text) # Remove Ethereum wallet addresses (start with 0x)
+    text = re.sub(r'\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b', '', text) # Remove Bitcoin wallet addresses (start with 1 or 3)
+    text = remove_mentions_and_hashtags(text) # Remove @mentions and #hashtags
+    text = remove_emojis(text) # Remove emojis
+    text = re.sub(r'([!?.,()])', r' \1 ', text) # Add spacing around punctuation
+    text = clean_whitespace(text) # Clean up multiple spaces and trimming
     
+    # Discard texts shorter than 10 characters
     if len(text) < 10:
         return None
     
+    # Discard texts with fewer than 3 words
     words = text.split()
     if len(words) < 3:
         return None

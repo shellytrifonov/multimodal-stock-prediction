@@ -23,15 +23,31 @@ def detect_language(text):
         return False
     
     english_words = {
+        # --- Common Stop Words ---
         'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
         'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
         'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
         'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
         'is', 'are', 'was', 'were', 'been', 'has', 'had', 'does', 'did', 'can',
-        'could', 'should', 'stock', 'market', 'price', 'buy', 'sell', 'trading',
+        'could', 'should', 'about', 'after', 'over', 'under', 'up', 'down',
+        
+        # --- Core Market Terms ---
+        'stock', 'market', 'price', 'buy', 'sell', 'trading', 'trade',
         'shares', 'earnings', 'revenue', 'profit', 'loss', 'quarter', 'reports',
         'hold', 'long', 'short', 'call', 'put', 'bull', 'bear', 'rally', 
-        'surge', 'plunge', 'dip', 'gap', 'eps', 'guidance', 'forecast'
+        'surge', 'plunge', 'dip', 'gap', 'eps', 'guidance', 'forecast',
+        
+        # --- Macro Economics ---
+        'inflation', 'rate', 'rates', 'fed', 'federal', 'bank', 'economy', 
+        'recession', 'gdp', 'cpi', 'debt', 'bond', 'yield', 'crypto', 'bitcoin',
+        
+        # --- Corporate Actions ---
+        'dividend', 'split', 'merger', 'acquisition', 'deal', 'ipo', 'ceo', 'cfo',
+        'board', 'investor', 'shareholder', 'analyst', 'target', 'rating', 'upgrade', 'downgrade',
+        
+        # --- Movement Verbs/Adjectives ---
+        'record', 'high', 'low', 'gain', 'drop', 'crash', 'boom', 'correction',
+        'volatility', 'volume', 'green', 'red', 'support', 'resistance', 'breakout'
     }
     
     words = re.findall(r'\b[a-z]+\b', text.lower())
@@ -74,19 +90,23 @@ def clean_whitespace(text):
 
 def preprocess_text(text):
     """Apply text cleaning pipeline to financial news headlines."""
+
+    # Ensure text is not empty and is a string
     if not text or not isinstance(text, str):
         return None
     
-    text = html.unescape(text)
-    text = remove_source_prefix(text)
-    text = remove_urls(text)
-    text = remove_special_patterns(text)
-    text = re.sub(r'([!?.,();:])', r' \1 ', text)
-    text = clean_whitespace(text)
-    
+    text = html.unescape(text) # Decode HTML entities
+    text = remove_source_prefix(text) # Remove news source prefixes
+    text = remove_urls(text) # Remove URLs
+    text = remove_special_patterns(text) # Remove special patterns
+    text = re.sub(r'([!?.,();:])', r' \1 ', text) # Add spacing around punctuation
+    text = clean_whitespace(text) # Clean up multiple spaces and trimming
+
+    # Discard headlines shorter than 10 characters
     if len(text) < 10:
         return None
     
+    # Discard headlines with fewer than 3 words
     words = text.split()
     if len(words) < 3:
         return None
