@@ -1,16 +1,19 @@
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
-from sklearn.model_selection import train_test_split
 from models.twitter_lstm import TwitterLSTM
 
 print("=" * 70)
-print("Training Twitter LSTM")
+print("Twitter LSTM Training")
 print("=" * 70)
 
-print("\n1. Loading data...")
+print("\n1. Loading training data...")
 import os
 
 if os.path.exists('twitter_lstm_training_data.npz'):
@@ -19,56 +22,54 @@ else:
     data_path = '../twitter_lstm_training_data.npz'
 
 if not os.path.exists(data_path):
-    print(f"   ERROR: Training data not found at {data_path}")
-    print("   Run: python pipelines/twitter/build_twitter_training_data.py first")
+    print(f"   ERROR: Data not found at {data_path}")
+    print("   Run build_twitter_training_data.py first")
     exit(1)
 
 data = np.load(data_path)
-X = data['X']
-y = data['y']
-dates = data['dates']
 
-num_samples, seq_len, num_features = X.shape
+X_train = data['X_train']
+y_train = data['y_train']
+X_test = data['X_test']
+y_test = data['y_test']
+num_features = int(data['num_features'])
 
-print(f"   Total samples: {num_samples}")
-print(f"   Input shape: {X.shape}")
-print(f"   Features per hour: {num_features}")
-print(f"   Labels: {np.sum(y)} Up, {len(y) - np.sum(y)} Down")
+print(f"   Train: {len(X_train)} | Test: {len(X_test)}")
+print(f"   Shape: {X_train.shape} (72 hours × {num_features} features)")
+print(f"   Train labels: {np.sum(y_train)} Up / {len(y_train) - np.sum(y_train)} Down")
+print(f"   Test labels: {np.sum(y_test)} Up / {len(y_test) - np.sum(y_test)} Down")
 
-X_tensor = torch.FloatTensor(X)
-y_tensor = torch.FloatTensor(y).unsqueeze(1)
+X_train = torch.FloatTensor(X_train)
+y_train = torch.FloatTensor(y_train).unsqueeze(1)
+X_test = torch.FloatTensor(X_test)
+y_test = torch.FloatTensor(y_test).unsqueeze(1)
 
-print("\n2. Splitting data...")
-X_train, X_test, y_train, y_test = train_test_split(
-    X_tensor, y_tensor, test_size=0.2, random_state=42, stratify=y
-)
+print("   Chronological split")
 
-print(f"   Train: {len(X_train)} samples")
-print(f"   Test:  {len(X_test)} samples")
+print("\n2. Creating data loaders...")
+train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=8, shuffle=True)
+test_loader = DataLoader(TensorDataset(X_test, y_test), batch_size=8, shuffle=False)
+print(f"   Batch size: 8 (small to reduce overfitting)")
 
-train_dataset = TensorDataset(X_train, y_train)
-train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-
-test_dataset = TensorDataset(X_test, y_test)
-test_loader = DataLoader(test_dataset, batch_size=4, shuffle=False)
-
-print("\n3. Initializing model...")
+print("\n3. Building model...")
+# Reduced hidden_size to 64 and increased dropout to 0.4 to prevent overfitting
 model = TwitterLSTM(
     input_size=num_features,
-    hidden_size=128,
+    hidden_size=64,
     num_layers=2,
-    dropout=0.2
+    dropout=0.4
 )
-print(f"   Input features: {num_features}")
+print(f"   LSTM: {num_features} -> 64 (hidden_size reduced to prevent overfitting)")
+print(f"   Dropout: 0.4 (stronger regularization)")
 
 classifier = nn.Sequential(
-    nn.Linear(128, 64),
-    nn.ReLU(),
-    nn.Dropout(0.3),
     nn.Linear(64, 32),
     nn.ReLU(),
-    nn.Dropout(0.2),
-    nn.Linear(32, 1),
+    nn.Dropout(0.4),
+    nn.Linear(32, 16),
+    nn.ReLU(),
+    nn.Dropout(0.4),
+    nn.Linear(16, 1),
     nn.Sigmoid()
 )
 
@@ -85,12 +86,14 @@ class FullModel(nn.Module):
 
 full_model = FullModel(model, classifier)
 
-print(f"   Parameters: {sum(p.numel() for p in full_model.parameters()):,}")
+print(f"   Params: {sum(p.numel() for p in full_model.parameters()):,}")
 
+print("\n4. Training setup...")
 criterion = nn.BCELoss()
-optimizer = optim.Adam(full_model.parameters(), lr=0.001)
+optimizer = optim.Adam(full_model.parameters(), lr=0.001, weight_decay=1e-4)  # L2 regularization
+print(f"   Loss: BCELoss | Optimizer: Adam (lr=0.001, L2=1e-4) | Epochs: 100")
 
-print("\n4. Training...")
+print("\n5. Training...")
 print("-" * 70)
 
 num_epochs = 100
@@ -143,14 +146,12 @@ for epoch in range(num_epochs):
         torch.save(full_model.state_dict(), save_path)
     
     if (epoch + 1) % 10 == 0:
-        print(f"Epoch {epoch+1:3d}/{num_epochs} | "
-              f"Train Loss: {train_loss:.4f} Acc: {train_acc:5.1f}% | "
-              f"Test Loss: {test_loss:.4f} Acc: {test_acc:5.1f}%")
+        print(f"Epoch {epoch+1:3d}/{num_epochs} | Train Loss: {train_loss:.4f} Acc: {train_acc:5.1f}% | Test Loss: {test_loss:.4f} Acc: {test_acc:5.1f}%")
 
 print("-" * 70)
 print(f"\nBest test accuracy: {best_test_acc:.1f}% (epoch {best_epoch})")
 
-print("\n5. Evaluating best model...")
+print("\n6. Final evaluation...")
 load_path = 'models/trained/twitter_lstm_trained.pth' if os.path.exists('models') else 'trained/twitter_lstm_trained.pth'
 full_model.load_state_dict(torch.load(load_path))
 full_model.eval()
@@ -165,12 +166,11 @@ with torch.no_grad():
     train_acc = 100 * (train_pred_labels == y_train).float().mean().item()
     test_acc = 100 * (test_pred_labels == y_test).float().mean().item()
 
-print(f"   Train accuracy: {train_acc:.1f}%")
-print(f"   Test accuracy:  {test_acc:.1f}%")
+print(f"Train accuracy: {train_acc:.1f}% | Test accuracy: {test_acc:.1f}% | Gap: {train_acc - test_acc:.1f}%")
 
-print("\n6. Sample predictions (test set):")
+print("\n7. Sample predictions:")
 print("-" * 70)
-print(f"{'Prediction':<12} {'Actual':<10} {'Probability':<12}")
+print(f"{'Predicted':<12} {'Actual':<10} {'Prob':<10}")
 print("-" * 70)
 
 with torch.no_grad():
@@ -182,7 +182,7 @@ with torch.no_grad():
         print(f"{pred_label:<12} {actual_label:<10} {pred_prob:.4f}")
 
 print("\n" + "=" * 70)
-print("Training Complete!")
+print("Training complete!")
 print("=" * 70)
-print(f"\nModel saved to: models/trained/twitter_lstm_trained.pth")
-print(f"Final test accuracy: {test_acc:.1f}%")
+print(f"Saved: models/trained/twitter_lstm_trained.pth")
+print(f"Test accuracy: {test_acc:.1f}%")

@@ -8,8 +8,6 @@ from config.db_config import (
     MONGO_URI, DB_NAME,
     COLLECTION_RAW_TWEETS, COLLECTION_CLEANED_TWEETS,
     COLLECTION_TWEETS_WITH_SENTIMENT, COLLECTION_HOURLY_SENTIMENT_TWEETS,
-    COLLECTION_NEWS_ARTICLES, COLLECTION_CLEANED_NEWS,
-    COLLECTION_NEWS_WITH_SENTIMENT, COLLECTION_HOURLY_NEWS_SENTIMENT,
     COLLECTION_STOCK_PRICES
 )
 
@@ -28,10 +26,7 @@ def create_indexes():
     standard_collections = [
         COLLECTION_RAW_TWEETS,
         COLLECTION_CLEANED_TWEETS,
-        COLLECTION_TWEETS_WITH_SENTIMENT,
-        COLLECTION_NEWS_ARTICLES,
-        COLLECTION_CLEANED_NEWS,
-        COLLECTION_NEWS_WITH_SENTIMENT
+        COLLECTION_TWEETS_WITH_SENTIMENT
     ]
     
     print("\n1. Creating single-field indexes on 'ticker'...")
@@ -57,17 +52,6 @@ def create_indexes():
         print(f"   ✗ {COLLECTION_HOURLY_SENTIMENT_TWEETS}: {e}")
     
     try:
-        collection = db[COLLECTION_HOURLY_NEWS_SENTIMENT]
-        result = collection.create_index([
-            ("ticker", pymongo.ASCENDING),
-            ("Hour", pymongo.ASCENDING)
-        ])
-        print(f"   ✓ {COLLECTION_HOURLY_NEWS_SENTIMENT}: ticker_1_Hour_1")
-        indexes_created += 1
-    except Exception as e:
-        print(f"   ✗ {COLLECTION_HOURLY_NEWS_SENTIMENT}: {e}")
-    
-    try:
         collection = db[COLLECTION_STOCK_PRICES]
         result = collection.create_index([
             ("ticker", pymongo.ASCENDING),
@@ -87,21 +71,12 @@ def create_indexes():
     except Exception as e:
         print(f"   ✗ {COLLECTION_TWEETS_WITH_SENTIMENT}: {e}")
     
-    try:
-        collection = db[COLLECTION_NEWS_WITH_SENTIMENT]
-        result = collection.create_index([("published_at", pymongo.ASCENDING)])
-        print(f"   ✓ {COLLECTION_NEWS_WITH_SENTIMENT}: published_at_1")
-        indexes_created += 1
-    except Exception as e:
-        print(f"   ✗ {COLLECTION_NEWS_WITH_SENTIMENT}: {e}")
-    
     print("\n" + "=" * 70)
     print(f"Index creation complete: {indexes_created} indexes created")
     print("=" * 70)
     
     print("\n4. Verifying indexes...")
-    for collection_name in [COLLECTION_HOURLY_SENTIMENT_TWEETS, 
-                           COLLECTION_HOURLY_NEWS_SENTIMENT, 
+    for collection_name in [COLLECTION_HOURLY_SENTIMENT_TWEETS,
                            COLLECTION_STOCK_PRICES]:
         collection = db[collection_name]
         indexes = list(collection.list_indexes())

@@ -4,8 +4,10 @@ import torch.nn as nn
 
 class TwitterLSTM(nn.Module):
     """
-    Attention-based LSTM for temporal sentiment sequence encoding.
-    Processes 72-hour sentiment windows to extract temporal patterns.
+    Twitter LSTM encoder for 72-hour sentiment sequences.
+    
+    Uses attention to extract temporal patterns from hourly aggregated sentiment.
+    Output: 64-dim or 128-dim embedding (configurable via hidden_size).
     """
     
     def __init__(self, input_size=5, hidden_size=128, num_layers=2, dropout=0.2):
@@ -28,20 +30,17 @@ class TwitterLSTM(nn.Module):
         
     def forward(self, x):
         """
-        Forward pass with attention mechanism.
-        
         Args:
-            x: Input tensor (batch_size, 72, num_features)
+            x: Sentiment sequences (batch, 72, input_size)
         
         Returns:
-            Context vector (batch_size, hidden_size)
+            Context vector (batch, hidden_size)
         """
-        assert x.dim() == 3, f"Expected 3D input, got {x.dim()}D"
-        assert x.size(1) == 72, f"Expected 72 timesteps, got {x.size(1)}"
-        assert x.size(2) == self.input_size, f"Expected {self.input_size} features, got {x.size(2)}"
+        assert x.dim() == 3 and x.size(1) == 72 and x.size(2) == self.input_size, \
+            f"Expected (batch, 72, {self.input_size}), got {x.shape}"
         
+        # LSTM + attention
         lstm_out, (h_n, c_n) = self.lstm(x)
-        
         attn_scores = self.attention(lstm_out)
         attn_weights = torch.softmax(attn_scores, dim=1)
         context_vector = torch.sum(attn_weights * lstm_out, dim=1)
@@ -49,5 +48,5 @@ class TwitterLSTM(nn.Module):
         return context_vector
     
     def get_output_dim(self):
-        """Returns output dimensionality."""
+        """Returns output dimension."""
         return self.hidden_size

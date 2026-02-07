@@ -15,13 +15,6 @@ pipeline/__pycache__/
 models/__pycache__/
 scripts/__pycache__/
 
-# Data and Configuration (excluded from version control)
-data/
-config/
-
-# Model checkpoints
-models/trained/*.pth
-
 # Kaggle credentials
 .kaggle/
 

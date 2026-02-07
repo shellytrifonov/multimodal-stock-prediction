@@ -7,7 +7,7 @@ print("Twitter Sentiment Analysis Pipeline")
 print("=" * 70)
 
 steps = [
-    "python data/fetch_twitter_data.py",
+    # "python data/fetch_twitter_data.py",  # Skip if data already in DB
     "python pipelines/twitter/preprocess_tweets.py",
     "python pipelines/twitter/twitter_sentiment.py",
     "python pipelines/twitter/aggregate_hourly_twitter.py",

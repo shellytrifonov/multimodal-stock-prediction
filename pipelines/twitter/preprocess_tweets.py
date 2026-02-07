@@ -18,7 +18,7 @@ print("Preprocessing Tweets")
 print("=" * 70)
 
 def detect_language(text):
-    """Heuristic English detection optimized for financial text."""
+    """Quick English detection using financial keywords."""
     if not text or len(text) < 3:
         return False
     
@@ -60,20 +60,20 @@ def detect_language(text):
 
 
 def remove_urls(text):
-    """Remove URLs from text."""
+    """Strip URLs."""
     text = re.sub(r'http\S+|www\.\S+', '', text)
     return text
 
 
 def remove_mentions_and_hashtags(text):
-    """Remove @mentions and #hashtags."""
+    """Strip @mentions and #hashtags."""
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'#\w+', '', text)
     return text
 
 
 def remove_emojis(text):
-    """Remove emojis from text."""
+    """Strip emojis."""
     emoji_pattern = re.compile(
         "["
         u"\U0001F600-\U0001F64F"  # emoticons

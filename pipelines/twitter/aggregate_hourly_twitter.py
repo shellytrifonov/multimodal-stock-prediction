@@ -58,6 +58,10 @@ def aggregate_by_hour():
         df = pd.DataFrame(tweets)
         df['created_at'] = pd.to_datetime(df['created_at'])
         
+        # Calculate engagement weight using log scale to prevent outliers
+        df['engagement'] = df['likes_count'].fillna(0) + df['retweet_count'].fillna(0)
+        df['weight'] = np.log1p(df['engagement'])  # log(1 + engagement)
+                
         weekend_mask = df['created_at'].dt.dayofweek >= 5
         
         if weekend_mask.any():
@@ -71,27 +75,32 @@ def aggregate_by_hour():
         
         df['Hour'] = df['created_at'].dt.floor('h')
         
-        hourly = df.groupby('Hour').agg({
-            'p_negative': 'mean',
-            'p_neutral': 'mean',
-            'p_positive': 'mean',
-            'sentiment_score': ['mean', 'count', 'std', 'max', 'min']
-        })
+        # Calculate weighted averages for each hour
+        def weighted_avg(group):
+            weights = group['weight']
+            # Normalize weights within this hour
+            if weights.sum() > 0:
+                weights = weights / weights.sum()
+            else:
+                # If all weights are 0, use equal weighting
+                weights = np.ones(len(group)) / len(group)
+            
+            return pd.Series({
+                'p_negative': (group['p_negative'] * weights).sum(),
+                'p_neutral': (group['p_neutral'] * weights).sum(),
+                'p_positive': (group['p_positive'] * weights).sum(),
+                'mean_sentiment': (group['sentiment_score'] * weights).sum(),
+                'tweet_count': len(group),
+                'sentiment_std': group['sentiment_score'].std(),
+                'max_sentiment': group['sentiment_score'].max(),
+                'min_sentiment': group['sentiment_score'].min(),
+                'total_engagement': group['engagement'].sum(),
+                'avg_engagement': group['engagement'].mean()
+            })
         
-        hourly.columns = ['_'.join(str(c) for c in col).strip('_') if isinstance(col, tuple) else col 
-                          for col in hourly.columns.values]
-        col_mapping = {
-            'p_negative_mean': 'p_negative',
-            'p_neutral_mean': 'p_neutral',
-            'p_positive_mean': 'p_positive',
-            'sentiment_score_mean': 'mean_sentiment',
-            'sentiment_score_count': 'tweet_count',
-            'sentiment_score_std': 'sentiment_std',
-            'sentiment_score_max': 'max_sentiment',
-            'sentiment_score_min': 'min_sentiment'
-        }
-        hourly = hourly.rename(columns=col_mapping)
-        hourly = hourly.reset_index()
+        hourly = df.groupby('Hour').apply(weighted_avg).reset_index()
+        
+        # Column names are already set by the weighted_avg function
         
         first_hour = hourly['Hour'].min()
         last_hour = hourly['Hour'].max()
@@ -107,6 +116,8 @@ def aggregate_by_hour():
         result['sentiment_std'] = result['sentiment_std'].fillna(0)
         result['max_sentiment'] = result['max_sentiment'].fillna(0)
         result['min_sentiment'] = result['min_sentiment'].fillna(0)
+        result['total_engagement'] = result['total_engagement'].fillna(0)
+        result['avg_engagement'] = result['avg_engagement'].fillna(0)
         
         documents = []
         for _, row in result.iterrows():
@@ -120,7 +131,9 @@ def aggregate_by_hour():
                 'tweet_count': int(row['tweet_count']),
                 'sentiment_std': float(row['sentiment_std']),
                 'max_sentiment': float(row['max_sentiment']),
-                'min_sentiment': float(row['min_sentiment'])
+                'min_sentiment': float(row['min_sentiment']),
+                'total_engagement': float(row['total_engagement']),
+                'avg_engagement': float(row['avg_engagement'])
             }
             documents.append(doc)
         
