@@ -239,23 +239,6 @@ python -c "import numpy as np; data = np.load('twitter_lstm_training_data.npz');
 # Expected: (5664, 72, 10) or similar
 ```
 
-## Project Limitations
-
-1. **Sentiment granularity:** 72-hour aggregation may be too coarse for intraday market reactions
-2. **Data source:** General Twitter discourse lacks specificity of financial news
-3. **Prediction target:** Next-day direction may not align with sentiment dynamics
-4. **Class imbalance:** Not addressed with weighted loss during initial training
-5. **Architecture:** Simple concatenation fusion may be suboptimal vs. attention-based fusion
-
-## Future Improvements
-
-- Try financial news headlines instead of general Twitter data
-- Use FinBERT for domain-specific sentiment extraction
-- Implement intraday prediction (next hour instead of next day)
-- Add class-weighted loss or threshold tuning
-- Explore cross-attention fusion mechanisms
-- Incorporate portfolio-level forecasting across multiple stocks
-
 ## Dependencies
 
 See `requirements.txt` for complete list. Key libraries:
