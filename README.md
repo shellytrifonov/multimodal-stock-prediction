@@ -120,11 +120,6 @@ python scripts/run_hybrid_pipeline.py
 python evaluate_model.py
 ```
 
-**Expected runtime:**
-- Stock pipeline: ~15 minutes
-- Twitter pipeline: ~45 minutes (sentiment extraction is slow)
-- Fusion training: ~10 minutes
-- **Total: ~70 minutes** (with GPU)
 
 ### Step-by-Step Execution
 
